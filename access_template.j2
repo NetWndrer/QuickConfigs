@@ -1,0 +1,281 @@
+no service pad
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+
+hostname {{ hostname }}
+
+boot-start-marker
+boot-end-marker
+
+logging buffered 65536
+enable secret 0 {{ enablesecret }}
+username superuser privilege 15 secret 0 {{ superusersecret }}
+
+aaa new-model
+aaa group server tacacs+ ISE-TACACS
+ server name ISE1
+ server name ISE2
+ server name ACS
+ ip tacacs source-interface Loopback0
+
+aaa authentication login default group ISE-TACACS local
+aaa authentication login console local
+aaa authentication login vtymethod group ISE-TACACS local
+aaa authorization exec default group ISE-TACACS local
+aaa accounting update periodic 5
+aaa accounting exec default start-stop group ISE-TACACS
+aaa accounting commands 15 default start-stop group ISE-TACACS
+aaa accounting connection default start-stop group ISE-TACACS
+aaa accounting system default start-stop group ISE-TACACS
+
+aaa session-id common
+system mtu routing 1500
+ip routing
+ip subnet-zero
+
+ip domain-name industrial.local
+ip name-server 172.16.0.1
+ip name-server 172.16.0.2
+ip multicast-routing distributed
+ip device tracking probe auto-source override
+ip device tracking probe delay 60
+
+udld normal
+cdp run
+location admin-tag {{ cabinet }}
+ptp mode e2etransparent
+
+archive
+path flash:config
+maximum 5
+time-period 1440
+ log config
+  logging enable
+  logging size 1000
+
+vlan 2
+vlan 3
+vlan 4
+vlan 5
+vlan 6
+
+
+spanning-tree mode rapid-pvst
+spanning-tree portfast edge bpduguard default
+spanning-tree extend system-id
+
+errdisable recovery cause all
+errdisable recovery interval 300
+
+alarm profile defaultPort
+ alarm not-operating
+ syslog not-operating
+ notifies not-operating
+
+vlan internal allocation policy ascending
+
+lldp run
+
+interface Loopback0
+ description {{ hostname }}_Management
+ ip address {{ hostip }} 255.255.255.255
+ ip pim sparse-mode
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 0 {{ ospfkey }}
+ ip ospf 100 area {{ ospfarea }}
+
+{% macro intf_g(desc, ip_addr, ospfkey, ospfarea) %}
+ description {{ desc }}
+ no switchport
+ ip address {{ ip_addr }} 255.255.255.254
+ ip pim sparse-mode
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 0 {{ ospfkey }}
+ ip ospf 100 area {{ ospfarea }}
+ ip ospf network point-to-point
+ bfd interval 250 min_rx 250 multiplier 3
+ no shutdown
+{% endmacro %}
+
+{% if gi1_1_ip -%}
+interface GigabitEthernet1/1
+{{ intf_g(desc=gi1_1_desc, ip_addr=gi1_1_ip, ospfkey=ospfkey, ospfarea=gi1_1_area) }}
+{% endif -%}
+
+{% if gi1_2_ip -%}
+interface GigabitEthernet1/2
+{{ intf_g(desc=gi1_2_desc, ip_addr=gi1_2_ip, ospfkey=ospfkey, ospfarea=gi1_2_area) }}
+{% endif -%}
+
+{% if gi1_3_ip -%}
+interface GigabitEthernet1/3
+{{ intf_g(desc=gi1_3_desc, ip_addr=gi1_3_ip, ospfkey=ospfkey, ospfarea=gi1_3_area) }}
+{% endif -%}
+
+{% if gi1_4_ip -%}
+interface GigabitEthernet1/4
+{{ intf_g(desc=gi1_4_desc, ip_addr=gi1_4_ip, ospfkey=ospfkey, ospfarea=gi1_4_area) }}
+{% endif -%}
+
+{% macro intf_f(desc, vlanid) %}
+ description {{ desc }}
+ switchport access vlan {{ vlanid }}
+ switchport mode access
+ switchport protected
+ ip device tracking maximum 10
+ spanning-tree portfast edge
+ no shutdown
+{% endmacro %}
+
+{% if fa1_5_vlan -%}
+interface FastEthernet1/5
+{{ intf_f(desc=fa1_5_desc, vlanid=fa1_5_vlan) }}
+{% endif -%}
+
+{% if fa1_6_vlan -%}
+interface FastEthernet1/6
+{{ intf_f(desc=fa1_6_desc, vlanid=fa1_6_vlan) }}
+{% endif -%}
+
+{% if fa1_7_vlan -%}
+interface FastEthernet1/7
+{{ intf_f(desc=fa1_7_desc, vlanid=fa1_7_vlan) }}
+{% endif -%}
+
+{% if fa1_8_vlan -%}
+interface FastEthernet1/8
+{{ intf_f(desc=fa1_8_desc, vlanid=fa1_8_vlan) }}
+{% endif -%}
+
+{% if fa1_9_vlan -%}
+interface FastEthernet1/9
+{{ intf_f(desc=fa1_9_desc, vlanid=fa1_9_vlan) }}
+{% endif -%}
+
+{% if fa1_10_vlan -%}
+interface FastEthernet1/10
+{{ intf_f(desc=fa1_10_desc, vlanid=fa1_10_vlan) }}
+{% endif -%}
+
+{% if fa1_11_vlan -%}
+interface FastEthernet1/11
+{{ intf_f(desc=fa1_11_desc, vlanid=fa1_11_vlan) }}
+{% endif -%}
+
+{% if fa1_12_vlan -%}
+interface FastEthernet1/12
+{{ intf_f(desc=fa1_12_desc, vlanid=fa1_12_vlan) }}
+{% endif -%}
+
+{% macro intf_svi(ip_addr, ospfarea) %}
+ ip address {{ ip_addr }} 255.255.255.248
+ ip helper-address 10.16.30.11
+ ip helper-address 10.119.30.11
+ ip ospf 100 area {{ ospfarea }}
+{% endmacro %}
+
+{% if vlan2ip -%}
+interface Vlan2
+ description vlan2
+{{ intf_svi(ip_addr=vlan2ip, ospfarea=ospfarea) }}
+{% endif -%}
+
+{% if vlan3ip -%}
+interface Vlan3
+ description vlan3
+{{ intf_svi(ip_addr=vlan3ip, ospfarea=ospfarea) }}
+{% endif -%}
+
+{% if vlan4ip -%}
+interface Vlan4
+ description vlan4
+{{ intf_svi(ip_addr=vlan4ip, ospfarea=ospfarea) }}
+{% endif -%}
+
+{% if vlan5ip -%}
+interface Vlan5
+ description vlan5
+{{ intf_svi(ip_addr=vlan5ip, ospfarea=ospfarea) }}
+{% endif -%}
+
+{% if vlan6ip -%}
+interface Vlan6
+ description vlan6
+{{ intf_svi(ip_addr=vlan6ip, ospfarea=ospfarea) }}
+{% endif -%}
+
+router ospf 100
+ router-id {{ hostip }}
+ max-metric router-lsa on-startup 180
+ area {{ ospfarea }} stub
+ bfd all-interfaces
+
+ip forward-protocol nd
+
+ip http server
+ip http authentication local
+ip http secure-server
+ip http secure-active-session-modules none
+ip http active-session-modules none
+ip http client source-interface Loopback0
+ip pim rp-address 10.0.2.1
+ip pim register-source Loopback0
+ip ssh source-interface Loopback0
+ip ssh version 2
+
+logging buffered 65536
+logging host 10.1.1.1 session-id hostname
+logging host 10.1.1.2
+logging source-interface Loopback0
+logging trap informational
+logging history size 500
+logging history NOTIFICATIONS
+
+
+access-list 99 permit host 192.168.1.1
+
+
+snmp-server community IND_NETS RO 99
+
+snmp-server host 10.3.1.1 version 2c IND_NETS 
+snmp-server host 10.4.1.1 version 2c IND_NETS 
+
+tacacs server ISE1
+ address ipv4 10.10.30.11
+ key 0 {{ tacacskey }}
+tacacs server ISE2
+ address ipv4 10.11.30.11
+ key 0 {{ tacacskey }}
+
+banner login ^C
+***********************************************************************
+* WARNING : UNAUTHORIZED ACCESS TO THIS NETWORK DEVICE IS PROHIBITED. *
+* ------------------------------------------------------------------- *
+* This is a restricted corporate resource, you must have explicit     *
+* permission to access or configure this device. All activities       *
+* performed on this device are logged, and any unauthorised attempts  *
+* to access company resources will be prosecuted to the fullest       *
+* extent of the law.                                                  *
+***********************************************************************
+^C
+
+line con 0
+ logging synchronous
+ login authentication console
+ transport output ssh
+line vty 0 4
+ logging synchronous
+ transport input ssh
+ transport output ssh
+line vty 5 15
+ logging synchronous
+ transport input ssh
+ transport output ssh
+
+ntp source Loopback0
+
+ntp server ntp1.local
+ntp server ntp2.local
+
+end

@@ -1,0 +1,404 @@
+no service pad
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+ Call-home is enabled by Smart-Licensing.
+service call-home
+no platform punt-keepalive disable-kernel-core
+
+hostname {{ hostname }}
+
+vrf definition Mgmt-vrf
+ 
+ address-family ipv4
+ exit-address-family
+ 
+ address-family ipv6
+ exit-address-family
+
+logging file flash:logfile 81920 warnings
+logging buffered 65536
+
+aaa new-model
+
+aaa group server tacacs+ ISE-TACACS
+ server name ISE1
+ server name ISE2
+ server name ACS
+
+aaa authentication login default group ISE-TACACS local
+aaa authentication login vtymethod group ISE-TACACS local
+aaa authentication login console local
+aaa authorization exec default group ISE-TACACS local 
+aaa accounting update periodic 5
+aaa accounting exec default start-stop group ISE-TACACS
+aaa accounting commands 15 default start-stop group ISE-TACACS
+aaa accounting connection default start-stop group ISE-TACACS
+aaa accounting system default start-stop group ISE-TACACS
+
+aaa session-id common
+
+call-home
+  If contact email address in call-home is configured as sch-smart-licensing@cisco.com
+  the email address configured in Cisco Smart License Portal will be used as contact email address to send SCH notifications.
+ contact-email-addr sch-smart-licensing@cisco.com
+ profile "CiscoTAC-1"
+  active
+  destination transport-method http
+  no destination transport-method email
+no standby sso
+ip routing
+username superuser secret 0 {{ superusersecret }}
+username superuser privilege 15
+
+enable secret 0 {{ enablesecret }}
+service password-encryption
+
+ip routing
+ip subnet-zero
+cdp run
+location admin-tag {{ cabinet }}
+
+ip multicast-routing 
+ip name-server 172.16.0.1 172.16.0.2
+ip domain name industrial.local
+
+ip dhcp snooping vlan 2-1005
+no ip dhcp snooping information option
+ip dhcp snooping
+ip arp inspection vlan 2-1005
+ip arp inspection validate src-mac dst-mac ip 
+login on-success log
+
+license boot level network-advantage addon dna-advantage
+
+diagnostic bootup level minimal
+
+spanning-tree mode rapid-pvst
+spanning-tree portfast bpduguard default
+spanning-tree extend system-id
+
+archive
+ log config
+  logging enable
+  logging size 1000
+ path flash:config
+ maximum 5
+ time-period 1440
+
+auto security
+errdisable recovery cause all
+errdisable recovery interval 300
+
+enable secret 0 {{ enablesecret }}
+username superuser privilege 15 secret 0 {{ superusersecret }}
+
+redundancy
+ mode sso
+
+transceiver type all
+ monitoring
+
+lldp run
+
+class-map match-any system-cpp-police-topology-control
+  description Topology control
+class-map match-any system-cpp-police-sw-forward
+  description Sw forwarding, L2 LVX data, LOGGING
+class-map match-any system-cpp-default
+  description Inter FED, EWLC control, EWLC data
+class-map match-any system-cpp-police-sys-data
+  description Learning cache ovfl, High Rate App, Exception, EGR Exception, NFL SAMPLED DATA, RPF Failed
+class-map match-any system-cpp-police-punt-webauth
+  description Punt Webauth
+class-map match-any system-cpp-police-l2lvx-control
+  description L2 LVX control packets
+class-map match-any system-cpp-police-forus
+  description Forus Address resolution and Forus traffic
+class-map match-any system-cpp-police-multicast-end-station
+  description MCAST END STATION
+class-map match-any system-cpp-police-high-rate-app
+  description High Rate Applications 
+class-map match-any system-cpp-police-multicast
+  description Transit Traffic and MCAST Data
+class-map match-any system-cpp-police-l2-control
+  description L2 control
+class-map match-any system-cpp-police-dot1x-auth
+  description DOT1X Auth
+class-map match-any system-cpp-police-data
+  description ICMP redirect, ICMP_GEN and BROADCAST
+class-map match-any system-cpp-police-stackwise-virt-control
+  description Stackwise Virtual
+class-map match-any system-cpp-police-control-low-priority
+  description General punt
+class-map match-any non-client-nrt-class
+class-map match-any system-cpp-police-routing-control
+  description Routing control and Low Latency
+class-map match-any system-cpp-police-protocol-snooping
+  description Protocol snooping
+class-map match-any system-cpp-police-dhcp-snooping
+  description DHCP snooping
+class-map match-any system-cpp-police-system-critical
+  description System Critical and Gold Pkt
+
+policy-map system-cpp-policy
+ class system-cpp-police-control-low-priority
+
+interface Loopback0
+ description {{ hostname }}_Management
+ ip address {{ hostip }} 255.255.255.255
+ ip pim sparse-mode
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 0 {{ ospfkey }}
+ ip ospf 100 area 0
+
+interface GigabitEthernet0/0
+ vrf forwarding Mgmt-vrf
+ no ip address
+ shutdown 
+ negotiation auto
+
+{% macro intf_te_ospf_auth(desc, ip_addr, ospfkey, ospfarea) %}
+ description {{ desc }}
+ no switchport
+ ip address {{ ip_addr }} 255.255.255.254
+ ip pim sparse-mode
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 0 {{ ospfkey }}
+ ip ospf 100 area {{ ospfarea }}
+ ip ospf network point-to-point
+ bfd interval 250 min_rx 250 multiplier 3
+ no shutdown
+{% endmacro %}
+
+{% if teng1_1_ip -%}
+interface TenGigabitEthernet1/0/1
+{{ intf_te_ospf_auth(desc=teng1_1_desc, ip_addr=teng1_1_ip, ospfkey=ospfkey, ospfarea=teng1_1_area) }}
+{% endif -%}
+
+{% if teng1_2_ip -%}
+interface TenGigabitEthernet1/0/2
+{{ intf_te_ospf_auth(desc=teng1_2_desc, ip_addr=teng1_2_ip, ospfkey=ospfkey, ospfarea=teng1_2_area) }}
+{% endif -%}
+
+{% if teng1_3_ip -%}
+interface TenGigabitEthernet1/0/3
+{{ intf_te_ospf_auth(desc=teng1_3_desc, ip_addr=teng1_3_ip, ospfkey=ospfkey, ospfarea=teng1_3_area) }}
+{% endif -%}
+
+{% if teng1_4_ip -%}
+interface TenGigabitEthernet1/0/4
+{{ intf_te_ospf_auth(desc=teng1_4_desc, ip_addr=teng1_4_ip, ospfkey=ospfkey, ospfarea=teng1_4_area) }}
+{% endif -%}
+
+{% if teng1_5_ip -%}
+interface TenGigabitEthernet1/0/5
+{{ intf_te_ospf_auth(desc=teng1_5_desc, ip_addr=teng1_5_ip, ospfkey=ospfkey, ospfarea=teng1_5_area) }}
+{% endif -%}
+
+{% if teng1_6_ip -%}
+interface TenGigabitEthernet1/0/6
+{{ intf_te_ospf_auth(desc=teng1_6_desc, ip_addr=teng1_6_ip, ospfkey=ospfkey, ospfarea=teng1_6_area) }}
+{% endif -%}
+
+{% if teng1_7_ip -%}
+interface TenGigabitEthernet1/0/7
+{{ intf_te_ospf_auth(desc=teng1_7_desc, ip_addr=teng1_7_ip, ospfkey=ospfkey, ospfarea=teng1_7_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_8_ip -%}
+interface TenGigabitEthernet1/0/8
+{{ intf_te_ospf_auth(desc=teng1_8_desc, ip_addr=teng1_8_ip, ospfkey=ospfkey, ospfarea=teng1_8_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_9_ip -%}
+interface TenGigabitEthernet1/0/9
+{{ intf_te_ospf_auth(desc=teng1_9_desc, ip_addr=teng1_9_ip, ospfkey=ospfkey, ospfarea=teng1_9_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_10_ip -%}
+interface TenGigabitEthernet1/0/10
+{{ intf_te_ospf_auth(desc=teng1_10_desc, ip_addr=teng1_10_ip, ospfkey=ospfkey, ospfarea=teng1_10_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_11_ip -%}
+interface TenGigabitEthernet1/0/11
+{{ intf_te_ospf_auth(desc=teng1_11_desc, ip_addr=teng1_11_ip, ospfkey=ospfkey, ospfarea=teng1_11_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_12_ip -%}
+interface TenGigabitEthernet1/0/12
+{{ intf_te_ospf_auth(desc=teng1_12_desc, ip_addr=teng1_12_ip, ospfkey=ospfkey, ospfarea=teng1_12_area) }}
+ ip ospf cost 1000
+{% endif -%}
+
+{% if teng1_13_ip -%}
+interface TenGigabitEthernet1/0/13
+{{ intf_te_ospf_auth(desc=teng1_13_desc, ip_addr=teng1_13_ip, ospfkey=ospfkey, ospfarea=teng1_13_area) }}
+{% endif -%}
+
+{% if teng1_14_ip -%}
+interface TenGigabitEthernet1/0/14
+{{ intf_te_ospf_auth(desc=teng1_14_desc, ip_addr=teng1_14_ip, ospfkey=ospfkey, ospfarea=teng1_14_area) }}
+{% endif -%}
+
+{% if teng1_15_ip -%}
+interface TenGigabitEthernet1/0/15
+{{ intf_te_ospf_auth(desc=teng1_15_desc, ip_addr=teng1_15_ip, ospfkey=ospfkey, ospfarea=teng1_15_area) }}
+{% endif -%}
+
+{% if teng1_16_ip -%}
+interface TenGigabitEthernet1/0/16
+{{ intf_te_ospf_auth(desc=teng1_16_desc, ip_addr=teng1_16_ip, ospfkey=ospfkey, ospfarea=teng1_16_area) }}
+{% endif -%}
+
+{% if teng1_1_1_ip -%}
+interface TenGigabitEthernet1/1/1
+{{ intf_te_ospf_auth(desc=teng1_1_1_desc, ip_addr=teng1_1_1_ip, ospfkey=ospfkey, ospfarea=teng1_1_1_area) }}
+{% endif -%}
+
+{% if teng1_1_2_ip -%}
+interface TenGigabitEthernet1/1/2
+{{ intf_te_ospf_auth(desc=teng1_1_2_desc, ip_addr=teng1_1_2_ip, ospfkey=ospfkey, ospfarea=teng1_1_2_area) }}
+{% endif -%}
+
+{% if teng1_1_3_ip -%}
+interface TenGigabitEthernet1/1/3
+{{ intf_te_ospf_auth(desc=teng1_1_3_desc, ip_addr=teng1_1_3_ip, ospfkey=ospfkey, ospfarea=teng1_1_3_area) }}
+{% endif -%}
+
+{% if teng1_1_4_ip -%}
+interface TenGigabitEthernet1/1/4
+{{ intf_te_ospf_auth(desc=teng1_1_4_desc, ip_addr=teng1_1_4_ip, ospfkey=ospfkey, ospfarea=teng1_1_4_area) }}
+{% endif -%}
+
+{% macro intf_te_ospf_noauth(desc, ip_addr, ospfarea) %}
+ description {{ desc }}
+ no switchport
+ ip address {{ ip_addr }} 255.255.255.254
+ ip pim sparse-mode
+ ip ospf 100 area {{ ospfarea }}
+ ip ospf network point-to-point
+ bfd interval 250 min_rx 250 multiplier 3
+ no shutdown
+{% endmacro %}
+
+{% if teng1_1_5_ip -%}
+interface TenGigabitEthernet1/1/5
+{{ intf_te_ospf_noauth(desc=teng1_1_5_desc, ip_addr=teng1_1_5_ip, ospfarea=teng1_1_5_area) }}
+{% endif -%}
+
+{% if teng1_1_6_ip -%}
+interface TenGigabitEthernet1/1/6
+{{ intf_te_ospf_noauth(desc=teng1_1_6_desc, ip_addr=teng1_1_6_ip, ospfarea=teng1_1_6_area) }}
+{% endif -%}
+
+{% if teng1_1_7_ip -%}
+interface TenGigabitEthernet1/1/7
+{{ intf_te_ospf_noauth(desc=teng1_1_7_desc, ip_addr=teng1_1_7_ip, ospfarea=teng1_1_7_area) }}
+{% endif -%}
+
+{% if teng1_1_8_ip -%}
+interface TenGigabitEthernet1/1/8
+{{ intf_te_ospf_noauth(desc=teng1_1_8_desc, ip_addr=teng1_1_8_ip, ospfarea=teng1_1_8_area) }}
+{% endif -%}
+
+{% macro ospf(ospfarea_seg) %} 
+ area {{ ospfarea_seg }} stub no-summary
+{% endmacro %}
+
+router ospf 100
+ router-id {{ hostip }}
+ max-metric router-lsa on-startup 180
+ prefix-suppression
+{% if ospf_seg_1 -%} {{ ospf(ospf_seg=ospf_seg_1) }} {% endif -%}
+{% if ospf_seg_2 -%} {{ ospf(ospf_seg=ospf_seg_2) }} {% endif -%}
+{% if ospf_seg_3 -%} {{ ospf(ospf_seg=ospf_seg_3) }} {% endif -%}
+{% if ospf_seg_4 -%} {{ ospf(ospf_seg=ospf_seg_4) }} {% endif -%}
+{% if ospf_seg_5 -%} {{ ospf(ospf_seg=ospf_seg_5) }} {% endif -%}
+{% if ospf_seg_6 -%} {{ ospf(ospf_seg=ospf_seg_6) }} {% endif -%}
+{% if ospf_seg_7 -%} {{ ospf(ospf_seg=ospf_seg_7) }} {% endif -%}
+{% if ospf_seg_8 -%} {{ ospf(ospf_seg=ospf_seg_8) }} {% endif -%}
+{% if ospf_seg_9 -%} {{ ospf(ospf_seg=ospf_seg_9) }} {% endif -%}
+{% if ospf_seg_10 -%} {{ ospf(ospf_seg=ospf_seg_10) }} {% endif -%}
+{% if ospf_seg_11 -%} {{ ospf(ospf_seg=ospf_seg_11) }} {% endif -%}
+{% if ospf_seg_12 -%} {{ ospf(ospf_seg=ospf_seg_12) }} {% endif -%}
+{% if ospf_seg_13 -%} {{ ospf(ospf_seg=ospf_seg_13) }} {% endif -%}
+{% if ospf_seg_14 -%} {{ ospf(ospf_seg=ospf_seg_14) }} {% endif -%}
+ bfd all-interfaces
+
+ip forward-protocol nd
+ip pim rp-address 172.16.255.1
+ip pim register-source Loopback0
+ip http server
+ip http authentication local
+ip http secure-server
+ip http secure-active-session-modules none
+ip http active-session-modules none
+ip http client source-interface Loopback0
+ip ftp source-interface Loopback0
+ip route 0.0.0.0 0.0.0.0 8.8.8.8
+ip tacacs source-interface Loopback0 
+
+ip ssh source-interface Loopback0
+ip ssh version 2
+
+logging host 10.1.1.1 session-id hostname
+logging host 10.1.1.2
+logging source-interface Loopback0
+logging trap informational
+logging history size 500
+logging history NOTIFICATIONS
+
+
+access-list 99 permit host 192.168.1.1
+
+snmp-server community IND_NETS RO 99
+
+snmp-server host 10.3.1.1 version 2c IND_NETS 
+snmp-server host 10.4.1.1 version 2c IND_NETS 
+
+tacacs server ISE1
+ address ipv4 10.10.30.11
+ key 0 {{ tacacskey }}
+tacacs server ISE2
+ address ipv4 10.11.30.11
+ key 0 {{ tacacskey }}
+
+control-plane
+ service-policy input system-cpp-policy
+
+banner login ^C
+***********************************************************************
+* WARNING : UNAUTHORIZED ACCESS TO THIS NETWORK DEVICE IS PROHIBITED. *
+* ------------------------------------------------------------------- *
+* This is a restricted corporate resource, you must have explicit     *
+* permission to access or configure this device. All activities       *
+* performed on this device are logged, and any unauthorised attempts  *
+* to access company resources will be prosecuted to the fullest       *
+* extent of the law.                                                  *
+***********************************************************************
+^C
+
+line con 0
+ logging synchronous
+ transport output ssh
+ stopbits 1
+line vty 0 4
+ logging synchronous
+ transport input ssh
+ transport output ssh
+line vty 5 15
+ logging synchronous
+ transport input ssh
+ transport output ssh
+
+ntp server ntp1.local
+ntp server ntp2.local
+
+end
