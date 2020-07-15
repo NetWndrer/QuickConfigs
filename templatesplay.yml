@@ -1,0 +1,12 @@
+---
+- hosts: 127.0.0.1
+  gather_facts: no
+  connection: local
+  tasks:
+  - name: run script
+    command: python3 /ansible_local/git/csv2yml.py
+    run_once: true
+  - name: second script
+    command: python3 /ansible_local/git/Template_Gen.py
+    run_once: true
+...
