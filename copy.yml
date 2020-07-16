@@ -1,0 +1,7 @@
+---
+- hosts: 192.168.48.1
+  gather_facts: no
+- name: Copy a single file
+  win_copy:
+    src: /ansible_local/git/output.zip
+    dest: c:\Users\MCD\dockertest
